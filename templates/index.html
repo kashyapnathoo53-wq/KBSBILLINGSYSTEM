@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sri Radhe Billing">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Sri Radhe Enterprises - Billing</title>
+
+<style>
+
+:root{
+  --gold:#b8860b;
+  --gold-light:#ffd700;
+  --green:#1e7d32;
+  --blue:#0d5fbb;
+  --red:#c62828;
+  --text:#222;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  background:#f2f2f2;
+  margin:0;
+  padding:15px;
+  color:var(--text);
+  font-size:19px;              /* larger base font for readability */
+  line-height:1.4;
+}
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  background:white;
+  padding:22px;
+  border-radius:12px;
+  box-shadow:0 0 12px rgba(0,0,0,0.15);
+}
+
+h1{
+  text-align:center;
+  color:var(--gold);
+  font-size:30px;
+  margin:0 0 6px 0;
+}
+
+.subtitle{
+  text-align:center;
+  color:#666;
+  font-size:16px;
+  margin-bottom:18px;
+}
+
+/* Big top-level tab buttons */
+.tabs{
+  display:flex;
+  gap:10px;
+  margin-bottom:20px;
+}
+
+.tab-btn{
+  flex:1;
+  padding:16px;
+  font-size:20px;
+  font-weight:bold;
+  border:2px solid var(--gold);
+  background:white;
+  color:var(--gold);
+  border-radius:10px;
+  cursor:pointer;
+}
+
+.tab-btn.active{
+  background:var(--gold);
+  color:white;
+}
+
+.hidden{ display:none !important; }
+
+fieldset{
+  border:2px solid #ddd;
+  border-radius:10px;
+  margin-bottom:18px;
+  padding:14px 16px 18px 16px;
+}
+
+legend{
+  font-weight:bold;
+  font-size:20px;
+  color:var(--gold);
+  padding:0 8px;
+}
+
+label{
+  font-weight:bold;
+  display:block;
+  margin-top:14px;
+  font-size:18px;
+}
+
+input, select, textarea{
+  width:100%;
+  padding:14px;
+  border:2px solid #ccc;
+  border-radius:8px;
+  margin-top:6px;
+  font-size:19px;
+  background:#fff;
+}
+
+input:focus, select:focus, textarea:focus{
+  outline:none;
+  border-color:var(--blue);
+}
+
+.two-col{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 20px;
+}
+
+/* ---- Product entry: stacked cards (works great on phones) ---- */
+#invoiceBody{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  margin-top:14px;
+}
+
+.product-card{
+  border:2px solid #eee;
+  background:#fafafa;
+  border-radius:10px;
+  padding:16px 14px 14px 14px;
+  position:relative;
+}
+
+.product-card .card-number{
+  position:absolute;
+  top:-12px;
+  left:12px;
+  background:var(--gold);
+  color:white;
+  font-size:13px;
+  font-weight:bold;
+  padding:3px 12px;
+  border-radius:12px;
+}
+
+.product-card .field-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 12px;
+}
+
+.product-card label{
+  font-size:14px;
+  margin-top:10px;
+}
+
+.product-card input, .product-card select{
+  padding:12px;
+  font-size:17px;
+  margin-top:4px;
+}
+
+.product-card .amount-line{
+  margin-top:12px;
+  text-align:right;
+  font-weight:bold;
+  color:var(--green);
+  font-size:16px;
+}
+
+.product-card .delete-btn{
+  position:absolute;
+  top:-14px;
+  right:8px;
+  padding:6px 12px;
+  font-size:14px;
+  border-radius:16px;
+  margin-top:0;
+}
+
+button{
+  padding:14px 20px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:18px;
+  font-weight:bold;
+  margin-top:12px;
+}
+
+.add-btn{
+  background:var(--green);
+  color:white;
+  width:100%;
+}
+
+.save-btn{
+  background:var(--blue);
+  color:white;
+  width:100%;
+  font-size:22px;
+  padding:18px;
+  margin-top:20px;
+}
+
+.delete-btn{
+  background:var(--red);
+  color:white;
+}
+
+.summary{
+  margin-top:20px;
+  background:#fff8dc;
+  padding:16px;
+  border-radius:10px;
+  border:2px solid var(--gold-light);
+}
+
+.summary h3{
+  margin:6px 0;
+  font-size:20px;
+  display:flex;
+  justify-content:space-between;
+}
+
+.summary h3.grand{
+  color:var(--green);
+  font-size:24px;
+  border-top:2px dashed #ccc;
+  padding-top:8px;
+  margin-top:10px;
+}
+
+/* Success banner with the PDF link, shown after saving */
+#successBanner{
+  margin-top:18px;
+  background:#e8f8ea;
+  border:2px solid var(--green);
+  border-radius:10px;
+  padding:18px;
+  text-align:center;
+}
+
+#successBanner p{
+  font-size:20px;
+  font-weight:bold;
+  color:var(--green);
+  margin:0 0 12px 0;
+}
+
+.pdf-link-btn{
+  display:inline-block;
+  background:var(--green);
+  color:white;
+  text-decoration:none;
+  padding:16px 26px;
+  border-radius:8px;
+  font-size:20px;
+  font-weight:bold;
+}
+
+/* Past invoices view */
+.invoice-card{
+  border:2px solid #e2e8f0;
+  border-radius:10px;
+  padding:14px 16px;
+  margin-bottom:14px;
+  background:#ffffff;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  transition:border-color 0.2s, box-shadow 0.2s;
+}
+.invoice-card:hover{
+  border-color:#b45309;
+  box-shadow:0 3px 10px rgba(0,0,0,0.06);
+}
+.invoice-card.recent-highlight{
+  border:2px solid #198754;
+  background:#f6fff9;
+}
+.invoice-card .info b{
+  font-size:18px;
+  color:var(--gold);
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.invoice-card .info .meta-row{
+  font-size:14px;
+  color:#555;
+  margin-top:6px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+}
+.badge-recent{
+  background:#198754;
+  color:white;
+  font-size:11px;
+  font-weight:bold;
+  padding:2px 8px;
+  border-radius:4px;
+  letter-spacing:0.5px;
+}
+.view-btn{
+  background:var(--blue);
+  color:white;
+  text-decoration:none;
+  padding:10px 16px;
+  border-radius:8px;
+  font-size:14px;
+  font-weight:bold;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+  transition:background 0.2s, transform 0.1s;
+}
+.view-btn:hover{
+  background:var(--blue-dark);
+}
+.view-btn:active{
+  transform:scale(0.98);
+}
+
+.search-box{
+  margin-bottom:16px;
+}
+
+.loading, .empty-msg{
+  text-align:center;
+  color:#777;
+  font-size:18px;
+  padding:20px;
+}
+
+.section-note{
+  color:#777;
+  font-size:15px;
+  margin-top:-8px;
+  margin-bottom:6px;
+}
+
+.btn-small-link{
+  background:none;
+  border:none;
+  color:var(--blue);
+  font-size:16px;
+  font-weight:bold;
+  text-decoration:underline;
+  cursor:pointer;
+  padding:0;
+  margin:0;
+}
+.btn-small-link:hover{
+  color:var(--gold);
+}
+.btn-save-customer{
+  background:#198754;
+  color:white;
+  border:none;
+  padding:10px 18px;
+  font-size:15px;
+  font-weight:bold;
+  border-radius:8px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  transition:background 0.2s, transform 0.1s;
+}
+.btn-save-customer:hover{
+  background:#157347;
+}
+.btn-save-customer:active{
+  transform:scale(0.98);
+}
+.btn-save-mini{
+  background:#198754;
+  color:white;
+  border:none;
+  padding:6px 14px;
+  font-size:13px;
+  font-weight:bold;
+  border-radius:6px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  transition:background 0.2s, transform 0.1s;
+}
+.btn-save-mini:hover{
+  background:#157347;
+}
+.btn-save-mini:active{
+  transform:scale(0.98);
+}
+
+
+.phone-badge{
+  background: #f0f7ff;
+  border: 2px dashed var(--blue);
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  margin-bottom: 18px;
+  font-size: 16px;
+  color: #1a4f8b;
+}
+.phone-badge a{
+  color: var(--blue);
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+@media(max-width:700px){
+  .two-col{ grid-template-columns:1fr; }
+  .product-card .field-row{ grid-template-columns:1fr 1fr; gap: 0 8px; }
+  body{ font-size:16px; padding:8px 6px; }
+  h1{ font-size:22px; margin-bottom:4px; }
+  .subtitle{ font-size:14px; margin-bottom:12px; }
+  .phone-badge{ font-size:14px; padding:8px 10px; margin-bottom:14px; }
+  .container{ padding:12px 10px; border-radius:10px; }
+  .tabs{ gap:8px; margin-bottom:14px; }
+  .tab-btn{ font-size:16px; padding:12px 6px; }
+  fieldset{ padding:10px 10px 14px 10px; margin-bottom:14px; border-radius:8px; }
+  legend{ font-size:18px; }
+  label{ font-size:15px; margin-top:10px; }
+  input, select, textarea{ padding:12px; font-size:16px; min-height:48px; }
+  .save-btn{ font-size:19px; padding:16px 12px; }
+  .invoice-card{ flex-direction:column; align-items:flex-start; }
+  .invoice-card .actions{ width:100%; }
+  .invoice-card .actions a{ margin-left:0; width:100%; text-align:center; }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🌼 Sri Radhe Enterprises 🌼</h1>
+<div class="subtitle">Billing System</div>
+
+{% if phone_url %}
+<div class="phone-badge">
+  📱 <b>Open on Mobile:</b> <a href="{{ phone_url }}" target="_blank">{{ phone_url }}</a>
+  <span style="font-size:13px; color:#666; display:block; margin-top:2px;">(Ensure your phone is connected to the same WiFi network)</span>
+</div>
+{% endif %}
+
+<div class="tabs">
+  <button class="tab-btn active" id="tabNewBtn" onclick="showTab('new')">🧾 New Invoice</button>
+  <button class="tab-btn" id="tabHistoryBtn" onclick="showTab('history')">📚 Past Invoices</button>
+</div>
+
+<!-- ============================= NEW INVOICE TAB ============================= -->
+<div id="tabNew">
+
+<fieldset>
+<legend>Invoice Details</legend>
+
+<div class="two-col">
+<div>
+<label>Invoice Number</label>
+<input type="text" id="invoice_no" placeholder="e.g. 1845">
+</div>
+<div>
+<label>Bill Date</label>
+<input type="date" id="billDate">
+</div>
+</div>
+
+</fieldset>
+
+<fieldset>
+<legend>Customer Details</legend>
+
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+  <label style="margin-top:0;">Customer Name</label>
+  <button type="button" class="btn-small-link" onclick="prepareNewCustomer()">➕ Add New Customer</button>
+</div>
+<select id="customer_select" onchange="onCustomerDropdownChange(this.value)">
+  <option value="">-- Choose Customer to Auto-Fill Details --</option>
+  <option value="__custom__">➕ Manual / New Customer</option>
+</select>
+<div id="customer_name_custom_wrap" class="hidden" style="margin-top:8px;">
+  <label style="margin-top:4px; font-size:15px; color:#555;">Type New Customer Name:</label>
+  <input type="text" id="customer_name_custom" placeholder="e.g. Mustaq &amp; Sons" oninput="onCustomCustomerNameInput(this.value)">
+  <div style="font-size:13px; color:#198754; margin-top:3px; font-weight:500;">✏️ Type customer details below. They will be saved to your customer dropdown permanently.</div>
+</div>
+<input type="hidden" id="customer_name">
+
+<label>Customer Address</label>
+<textarea id="customer_address" rows="2" placeholder="e.g. Shop 12, Main Market, Anantnag, Kashmir"></textarea>
+
+<label>Customer GSTIN</label>
+<input type="text" id="customer_gstin" placeholder="e.g. 01AAAAA0000A1Z5">
+
+<div style="margin-top:10px; margin-bottom:8px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+  <button type="button" class="btn-save-customer" onclick="saveCurrentCustomerPermanently()">
+    💾 Save / Update Customer to List
+  </button>
+  <span id="saveCustomerStatus" style="font-size:14px; font-weight:bold;"></span>
+</div>
+
+<div class="two-col">
+<div>
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+    <label style="margin-top:0;">Transporter</label>
+    <button type="button" class="btn-small-link" onclick="prepareNewTransporter()">➕ Add New</button>
+  </div>
+  <select id="transporter_select" onchange="onTransporterSelectChange(this.value)">
+    <option value="">-- Select Transporter --</option>
+    <option value="__custom__">➕ Other / New Transporter...</option>
+  </select>
+  <div id="transporter_custom_wrap" class="hidden" style="margin-top:6px;">
+    <input type="text" id="transporter_custom" placeholder="Type new transporter name..." oninput="onCustomTransporterInput(this.value)">
+    <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+      <button type="button" class="btn-save-mini" onclick="saveCurrentTransporterPermanently()">💾 Save to List</button>
+      <span id="saveTransporterStatus" style="font-size:12px; font-weight:bold;"></span>
+    </div>
+  </div>
+  <input type="hidden" id="transporter">
+</div>
+
+<div>
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+    <label style="margin-top:0;">Marka</label>
+    <button type="button" class="btn-small-link" onclick="prepareNewMarka()">➕ Add New</button>
+  </div>
+  <select id="marka_select" onchange="onMarkaSelectChange(this.value)">
+    <option value="">-- Select Marka --</option>
+    <option value="__custom__">➕ Other / New Marka...</option>
+  </select>
+  <div id="marka_custom_wrap" class="hidden" style="margin-top:6px;">
+    <input type="text" id="marka_custom" placeholder="Type new marka..." oninput="onCustomMarkaInput(this.value)">
+    <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+      <button type="button" class="btn-save-mini" onclick="saveCurrentMarkaPermanently()">💾 Save to List</button>
+      <span id="saveMarkaStatus" style="font-size:12px; font-weight:bold;"></span>
+    </div>
+  </div>
+  <input type="hidden" id="marka">
+</div>
+</div>
+
+</fieldset>
+
+<fieldset>
+<legend>Products</legend>
+<div class="section-note">Tap "+ Add Product" for every item on the bill.</div>
+
+<div id="invoiceBody"></div>
+
+<button class="add-btn" onclick="addRow()">+ Add Product</button>
+
+</fieldset>
+
+<fieldset>
+<legend>Other Charges &amp; Remarks</legend>
+
+<label>Labour / Bardana Amount</label>
+<input type="number" inputmode="decimal" id="labour_amount" value="0" oninput="calculateTotal()">
+
+<label>Remarks</label>
+<textarea id="remarks" rows="2" placeholder="e.g. MARK BS/SNR"></textarea>
+
+</fieldset>
+
+<div class="summary">
+<h3><span>Subtotal:</span> <span>₹ <span id="subtotal">0.00</span></span></h3>
+<h3><span>GST:</span> <span>₹ <span id="gsttotal">0.00</span></span></h3>
+<h3><span>Labour / Bardana:</span> <span>₹ <span id="labourdisp">0.00</span></span></h3>
+<h3 class="grand"><span>Grand Total:</span> <span>₹ <span id="grandtotal">0.00</span></span></h3>
+</div>
+
+<button class="save-btn" id="saveBtn" onclick="saveInvoice()">💾 Save Invoice &amp; Get Bill</button>
+
+<div id="successBanner" class="hidden">
+  <p id="successMsg"></p>
+  <a href="#" id="pdfLinkBtn" class="pdf-link-btn" target="_blank" rel="noopener">📄 View / Print Bill PDF</a>
+</div>
+
+</div>
+
+<!-- ============================= HISTORY TAB ============================= -->
+<div id="tabHistory" class="hidden">
+
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+    <h3 style="margin:0; font-size:18px; color:var(--blue);">Past &amp; Recent Invoices</h3>
+    <button type="button" class="btn-small-link" onclick="loadInvoices()" style="font-size:14px;">🔄 Refresh List</button>
+  </div>
+
+  <div class="search-box" style="margin-bottom:12px;">
+    <label style="font-size:14px; font-weight:600; color:#444;">Search by Invoice No, Customer Name, Transporter, Marka, or Date:</label>
+    <input type="text" id="searchBox" placeholder="Type invoice #, customer, transporter, date..." oninput="renderInvoiceList()">
+  </div>
+
+  <div id="invoiceCount" style="font-size:13px; color:#555; margin-bottom:12px; font-weight:500;"></div>
+
+  <div id="invoiceList"></div>
+
+</div>
+
+
+
+</div>
+
+<script>
+
+// ---------------------------------------------------------------
+// TAB SWITCHING
+// ---------------------------------------------------------------
+function showTab(name){
+  document.getElementById("tabNew").classList.toggle("hidden", name !== "new");
+  document.getElementById("tabHistory").classList.toggle("hidden", name !== "history");
+  document.getElementById("tabNewBtn").classList.toggle("active", name === "new");
+  document.getElementById("tabHistoryBtn").classList.toggle("active", name === "history");
+  if(name === "history"){
+    loadInvoices();
+  }
+}
+
+// ---------------------------------------------------------------
+// NEW INVOICE FORM
+// ---------------------------------------------------------------
+document.getElementById("billDate").valueAsDate = new Date();
+
+// ---------------------------------------------------------------
+// PRODUCTS DROPDOWN, DYNAMIC HSN FETCH & PERSISTENCE
+// ---------------------------------------------------------------
+let productList = [
+  { name: "Badamgiri (Almond Kernels) - American / R", hsn: "08021200", gst: 5 },
+  { name: "Badam Mamra", hsn: "08021200", gst: 5 },
+  { name: "Badam Sanora", hsn: "08021200", gst: 5 },
+  { name: "Kaju (Cashew) W240", hsn: "08013100", gst: 5 },
+  { name: "Kaju W320", hsn: "08013100", gst: 5 },
+  { name: "Kaju Tukda / Splits", hsn: "08013200", gst: 5 },
+  { name: "Akhrot Giri (Walnut Kernels)", hsn: "08023200", gst: 5 },
+  { name: "Akhrot Sabut (In-shell)", hsn: "08023100", gst: 5 },
+  { name: "Pista Irani", hsn: "08025100", gst: 5 },
+  { name: "Pista Maghaz", hsn: "08025200", gst: 5 },
+  { name: "Kishmish Indian / Afghan", hsn: "08062010", gst: 5 },
+  { name: "Munakka", hsn: "08062010", gst: 5 },
+  { name: "Anjeer (Figs)", hsn: "08042090", gst: 5 },
+  { name: "Makhana (Fox Nuts)", hsn: "19041090", gst: 5 },
+  { name: "Elaichi (Green Cardamom)", hsn: "09083100", gst: 5 }
+];
+
+function escapeHtml(str){
+  if(!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function getProductOptionsHtml(selectedVal){
+  let html = `<option value="">-- Select Product Name --</option>`;
+  productList.forEach(p => {
+    const isSel = (p.name === selectedVal) ? 'selected' : '';
+    html += `<option value="${escapeHtml(p.name)}" data-hsn="${escapeHtml(p.hsn || '')}" data-gst="${p.gst || 5}" ${isSel}>${escapeHtml(p.name)}</option>`;
+  });
+  const isCustom = (selectedVal === '__custom__') ? 'selected' : '';
+  html += `<option value="__custom__" ${isCustom}>➕ Other / Type Custom Product...</option>`;
+  return html;
+}
+
+function loadProducts(callback){
+  fetch("/api/products")
+    .then(r => r.json())
+    .then(data => {
+      if(data && data.length > 0){
+        productList = data;
+      }
+      // Refresh options in existing cards while preserving selection
+      document.querySelectorAll("#invoiceBody .product-card").forEach(card => {
+        const sel = card.querySelector(".product-select");
+        if(!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = getProductOptionsHtml(currentVal);
+        if(currentVal){
+          sel.value = currentVal;
+        }
+      });
+      if(typeof callback === "function") callback();
+    })
+    .catch(err => {
+      console.error("Error loading products:", err);
+      if(typeof callback === "function") callback();
+    });
+}
+
+let cardCounter = 0;
+
+function addRow(){
+  cardCounter++;
+
+  let card = document.createElement("div");
+  card.className = "product-card";
+  card.innerHTML = `
+    <span class="card-number">Item ${cardCounter}</span>
+    <button type="button" class="delete-btn" onclick="removeCard(this)">✕ Remove</button>
+
+    <label>Product Name</label>
+    <select class="product-select" onchange="onProductSelectChange(this)">
+      ${getProductOptionsHtml("")}
+    </select>
+    <div class="product-custom-wrap hidden" style="margin-top:6px;">
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input class="product-custom" placeholder="Type custom product name..." oninput="onCustomProductInput(this)" style="flex:1;">
+        <button type="button" class="btn-save-mini" onclick="fetchHsnForBtn(this)" style="background:#0d6efd; white-space:nowrap; padding:7px 12px;" title="Fetch HSN from Google/Net">🔍 Fetch HSN</button>
+      </div>
+      <div class="hsn-status" style="font-size:12px; margin-top:4px; font-weight:bold; min-height:16px;"></div>
+      <div style="margin-top:6px; display:flex; gap:8px; align-items:center;">
+        <button type="button" class="btn-save-mini" onclick="saveProductFromCard(this)">💾 Save to Product Dropdown</button>
+        <span class="save-prod-status" style="font-size:12px; font-weight:bold;"></span>
+      </div>
+    </div>
+    <input type="hidden" class="product">
+
+    <div class="field-row">
+      <div>
+        <label>HSN Code</label>
+        <input class="hsn" placeholder="e.g. 08021200">
+      </div>
+      <div>
+        <label>Qty</label>
+        <input type="number" inputmode="decimal" class="qty" value="0" oninput="calculateTotal()">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div>
+        <label>Unit</label>
+        <select class="qty_unit">
+          <option value="Bags">Bags</option>
+          <option value="Cases">Cases</option>
+          <option value="Pcs">Pcs</option>
+          <option value="Boxes">Boxes</option>
+        </select>
+      </div>
+      <div>
+        <label>Weight (kg)</label>
+        <input type="number" inputmode="decimal" class="weight" value="0" oninput="calculateTotal()">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div>
+        <label>Rate / kg (₹)</label>
+        <input type="number" inputmode="decimal" class="rate" value="0" oninput="calculateTotal()">
+      </div>
+      <div>
+        <label>GST %</label>
+        <input type="number" inputmode="decimal" class="gst" value="0" oninput="calculateTotal()">
+      </div>
+    </div>
+
+    <div class="amount-line">Amount: ₹ <span class="line-amount">0.00</span></div>
+  `;
+
+  document.getElementById("invoiceBody").appendChild(card);
+}
+
+function onProductSelectChange(sel){
+  const card = sel.closest(".product-card");
+  const customWrap = card.querySelector(".product-custom-wrap");
+  const customInput = card.querySelector(".product-custom");
+  const hiddenInput = card.querySelector(".product");
+  const hsnInput = card.querySelector(".hsn");
+  const gstInput = card.querySelector(".gst");
+  const statusEl = card.querySelector(".hsn-status");
+  if(statusEl) statusEl.innerText = "";
+
+  if(sel.value === "__custom__"){
+    customWrap.classList.remove("hidden");
+    hiddenInput.value = customInput.value;
+    customInput.focus();
+    if(customInput.value.trim()){
+      doFetchHsn(card, false);
+    }
+  } else if(sel.value){
+    customWrap.classList.add("hidden");
+    hiddenInput.value = sel.value;
+    const selectedOpt = sel.options[sel.selectedIndex];
+    if(selectedOpt){
+      hsnInput.value = selectedOpt.getAttribute("data-hsn") || "";
+      gstInput.value = selectedOpt.getAttribute("data-gst") || "5";
+      if(!hsnInput.value){
+        doFetchHsn(card, false);
+      }
+    }
+  } else {
+    customWrap.classList.add("hidden");
+    hiddenInput.value = "";
+  }
+  calculateTotal();
+}
+
+let hsnDebounceTimers = new WeakMap();
+
+function onCustomProductInput(inp){
+  const card = inp.closest(".product-card");
+  card.querySelector(".product").value = inp.value;
+  calculateTotal();
+
+  // Debounced auto-fetch
+  const name = inp.value.trim();
+  if(hsnDebounceTimers.has(card)){
+    clearTimeout(hsnDebounceTimers.get(card));
+  }
+  if(name.length >= 3){
+    const timer = setTimeout(() => {
+      doFetchHsn(card, false);
+    }, 700);
+    hsnDebounceTimers.set(card, timer);
+  }
+}
+
+function fetchHsnForBtn(btn){
+  const card = btn.closest(".product-card");
+  doFetchHsn(card, true);
+}
+
+function doFetchHsn(card, force){
+  const customInput = card.querySelector(".product-custom");
+  const name = (customInput.value || card.querySelector(".product").value || "").trim();
+  const hsnInput = card.querySelector(".hsn");
+  const gstInput = card.querySelector(".gst");
+  const statusEl = card.querySelector(".hsn-status");
+
+  if(!name){
+    if(force) alert("Please type a product name first.");
+    return;
+  }
+
+  // If not forced and user already typed an HSN code, don't overwrite
+  if(!force && hsnInput.value.trim()){
+    return;
+  }
+
+  statusEl.style.color = "var(--blue)";
+  statusEl.innerText = `⏳ Searching HSN code for "${name}" online...`;
+
+  fetch("/api/lookup_hsn?name=" + encodeURIComponent(name))
+    .then(r => r.json())
+    .then(res => {
+      if(res.success && res.hsn){
+        hsnInput.value = res.hsn;
+        if(!gstInput.value || gstInput.value === "0"){
+          gstInput.value = res.gst || 5;
+        }
+        statusEl.style.color = "var(--green)";
+        const srcLabel = res.source === "Online Web Search" ? "Google / Web" : "GST Catalog";
+        statusEl.innerText = `✅ HSN: ${res.hsn} auto-filled (${srcLabel})`;
+        calculateTotal();
+      } else {
+        statusEl.style.color = "#888";
+        statusEl.innerText = `💡 HSN not found automatically. You can enter it below.`;
+      }
+    })
+    .catch(err => {
+      statusEl.style.color = "var(--red)";
+      statusEl.innerText = `❌ Could not look up HSN. You can enter it manually.`;
+    });
+}
+
+function saveProductFromCard(btn){
+  const card = btn.closest(".product-card");
+  const name = (card.querySelector(".product-custom").value || card.querySelector(".product").value || "").trim();
+  const hsn = card.querySelector(".hsn").value.trim();
+  const gst = parseFloat(card.querySelector(".gst").value) || 5;
+  const statusEl = card.querySelector(".save-prod-status");
+
+  if(!name){
+    alert("Please enter a product name first.");
+    card.querySelector(".product-custom").focus();
+    return;
+  }
+
+  statusEl.style.color = "var(--blue)";
+  statusEl.innerText = "Saving...";
+
+  fetch("/api/products/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, hsn, gst })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success && res.product){
+      statusEl.style.color = "var(--green)";
+      statusEl.innerText = "✅ Saved to Dropdown!";
+      loadProducts(() => {
+        const sel = card.querySelector(".product-select");
+        sel.value = res.product.name;
+        onProductSelectChange(sel);
+      });
+      setTimeout(() => { statusEl.innerText = ""; }, 3000);
+    } else {
+      statusEl.style.color = "var(--red)";
+      statusEl.innerText = "❌ " + (res.error || "Failed to save");
+    }
+  })
+  .catch(() => {
+    statusEl.style.color = "var(--red)";
+    statusEl.innerText = "❌ Error saving product";
+  });
+}
+
+function removeCard(btn){
+  btn.closest(".product-card").remove();
+  renumberCards();
+  calculateTotal();
+}
+
+function renumberCards(){
+  document.querySelectorAll("#invoiceBody .product-card").forEach((card, i)=>{
+    card.querySelector(".card-number").innerText = "Item " + (i + 1);
+  });
+}
+
+addRow();
+
+function calculateTotal(){
+
+  let subtotal = 0;
+  let gsttotal = 0;
+
+  document.querySelectorAll("#invoiceBody .product-card").forEach(card=>{
+    let weight = parseFloat(card.querySelector(".weight").value) || 0;
+    let rate = parseFloat(card.querySelector(".rate").value) || 0;
+    let gst = parseFloat(card.querySelector(".gst").value) || 0;
+
+    let amount = weight * rate;
+    card.querySelector(".line-amount").innerText = amount.toFixed(2);
+
+    subtotal += amount;
+    gsttotal += amount * gst / 100;
+  });
+
+  let labour = parseFloat(document.getElementById("labour_amount").value) || 0;
+  let grand = subtotal + gsttotal + labour;
+
+  document.getElementById("subtotal").innerText = subtotal.toFixed(2);
+  document.getElementById("gsttotal").innerText = gsttotal.toFixed(2);
+  document.getElementById("labourdisp").innerText = labour.toFixed(2);
+  document.getElementById("grandtotal").innerText = grand.toFixed(2);
+}
+
+function resetForm(){
+  document.getElementById("invoice_no").value = "";
+  document.getElementById("billDate").valueAsDate = new Date();
+
+  // Reset Customer
+  const custSel = document.getElementById("customer_select");
+  if(custSel) custSel.value = "";
+  document.getElementById("customer_name").value = "";
+  document.getElementById("customer_name_custom").value = "";
+  document.getElementById("customer_name_custom_wrap").classList.add("hidden");
+  document.getElementById("customer_address").value = "";
+  document.getElementById("customer_gstin").value = "";
+
+  // Reset Transporter
+  const transSel = document.getElementById("transporter_select");
+  if(transSel) transSel.value = "";
+  document.getElementById("transporter").value = "";
+  document.getElementById("transporter_custom").value = "";
+  document.getElementById("transporter_custom_wrap").classList.add("hidden");
+
+  // Reset Marka
+  const markaSel = document.getElementById("marka_select");
+  if(markaSel) markaSel.value = "";
+  document.getElementById("marka").value = "";
+  document.getElementById("marka_custom").value = "";
+  document.getElementById("marka_custom_wrap").classList.add("hidden");
+
+  document.getElementById("labour_amount").value = "0";
+  document.getElementById("remarks").value = "";
+  document.getElementById("invoiceBody").innerHTML = "";
+  cardCounter = 0;
+  addRow();
+  calculateTotal();
+}
+
+function saveInvoice(){
+
+  let items = [];
+  let hasProduct = false;
+
+  document.querySelectorAll("#invoiceBody .product-card").forEach(card=>{
+    let name = card.querySelector(".product").value.trim();
+    if(name) hasProduct = true;
+    items.push({
+      product_name: name,
+      hsn_code: card.querySelector(".hsn").value,
+      qty: card.querySelector(".qty").value,
+      qty_unit: card.querySelector(".qty_unit").value,
+      weight: card.querySelector(".weight").value,
+      rate: card.querySelector(".rate").value,
+      gst: card.querySelector(".gst").value
+    });
+  });
+
+  let customerName = document.getElementById("customer_name").value.trim();
+  const customCust = document.getElementById("customer_name_custom");
+  if(!customerName && customCust && customCust.value.trim()){
+    customerName = customCust.value.trim();
+    document.getElementById("customer_name").value = customerName;
+  }
+  if(!customerName){
+    alert("Please select or enter the Customer Name before saving.");
+    return;
+  }
+
+  if(!hasProduct){
+    alert("Please add at least one product before saving.");
+    return;
+  }
+
+  let transporterVal = document.getElementById("transporter").value.trim();
+  const customTrans = document.getElementById("transporter_custom");
+  if(!transporterVal && customTrans && customTrans.value.trim()){
+    transporterVal = customTrans.value.trim();
+    document.getElementById("transporter").value = transporterVal;
+  }
+
+  let markaVal = document.getElementById("marka").value.trim();
+  const customMarka = document.getElementById("marka_custom");
+  if(!markaVal && customMarka && customMarka.value.trim()){
+    markaVal = customMarka.value.trim();
+    document.getElementById("marka").value = markaVal;
+  }
+
+  const data = {
+    invoice_no: document.getElementById("invoice_no").value,
+    bill_date: document.getElementById("billDate").value,
+    customer_name: customerName,
+    customer_address: document.getElementById("customer_address").value,
+    customer_gstin: document.getElementById("customer_gstin").value,
+    transporter: transporterVal,
+    marka: markaVal,
+    labour_amount: document.getElementById("labour_amount").value,
+    remarks: document.getElementById("remarks").value,
+    items: items
+  };
+
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.innerText = "Saving...";
+
+  fetch("/save_invoice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  })
+  .then(r => r.json())
+  .then(res=>{
+    btn.disabled = false;
+    btn.innerText = "💾 Save Invoice & Get Bill";
+
+    if(!res.success){
+      alert("Something went wrong. Please try again.");
+      return;
+    }
+
+    // Show the big success banner with the PDF link.
+    document.getElementById("successMsg").innerText =
+      "Invoice #" + res.invoice_id + " saved! Total: ₹" + res.total;
+
+    const pdfLink = document.getElementById("pdfLinkBtn");
+    pdfLink.href = res.pdf_url;
+    document.getElementById("successBanner").classList.remove("hidden");
+    document.getElementById("successBanner").scrollIntoView({behavior:"smooth"});
+
+    // Automatically open the bill PDF in a new tab.
+    window.open(res.pdf_url, "_blank");
+
+    resetForm();
+    loadCustomers();
+    loadTransporters();
+    loadMarkas();
+    loadProducts();
+  })
+  .catch(err=>{
+    btn.disabled = false;
+    btn.innerText = "💾 Save Invoice & Get Bill";
+    alert("Error saving invoice. Please check your internet connection and try again.");
+  });
+}
+
+// ---------------------------------------------------------------
+// CUSTOMER, TRANSPORTER, MARKA DROPDOWNS & AUTOFILL
+// ---------------------------------------------------------------
+let customerList = [];
+
+function loadCustomers(selectIdAfterLoad){
+  fetch("/api/customers")
+    .then(r => r.json())
+    .then(data => {
+      customerList = data || [];
+      renderCustomerDropdown();
+      if(selectIdAfterLoad){
+        const sel = document.getElementById("customer_select");
+        sel.value = String(selectIdAfterLoad);
+        onCustomerDropdownChange(sel.value);
+      }
+    })
+    .catch(err => {
+      console.error("Error loading customers:", err);
+    });
+}
+
+function prepareNewCustomer(){
+  const sel = document.getElementById("customer_select");
+  sel.value = "__custom__";
+  onCustomerDropdownChange("__custom__");
+  const customInput = document.getElementById("customer_name_custom");
+  customInput.value = "";
+  document.getElementById("customer_name").value = "";
+  document.getElementById("customer_address").value = "";
+  document.getElementById("customer_gstin").value = "";
+  customInput.focus();
+  const statusEl = document.getElementById("saveCustomerStatus");
+  if(statusEl){
+    statusEl.style.color = "#555";
+    statusEl.innerText = "Type Name, Address & GSTIN, then click Save to List.";
+  }
+}
+
+function saveCurrentCustomerPermanently(){
+  const sel = document.getElementById("customer_select");
+  const customInput = document.getElementById("customer_name_custom");
+  const addr = document.getElementById("customer_address");
+  const gstin = document.getElementById("customer_gstin");
+  const statusEl = document.getElementById("saveCustomerStatus");
+
+  let name = "";
+  if(sel.value === "__custom__"){
+    name = customInput.value.trim();
+  } else if(sel.value){
+    const cust = customerList.find(c => String(c.id) === String(sel.value));
+    name = cust ? cust.name : document.getElementById("customer_name").value.trim();
+  } else {
+    name = customInput.value.trim() || document.getElementById("customer_name").value.trim();
+  }
+
+  if(!name){
+    alert("Please enter a Customer Name first.");
+    if(sel.value === "__custom__") customInput.focus();
+    return;
+  }
+
+  statusEl.style.color = "var(--blue)";
+  statusEl.innerText = "Saving customer to list...";
+
+  fetch("/api/customers/save", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      name: name,
+      address: addr.value.trim(),
+      gstin: gstin.value.trim()
+    })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success && res.customer){
+      statusEl.style.color = "var(--green)";
+      statusEl.innerText = "✅ " + res.message;
+      loadCustomers(res.customer.id);
+      setTimeout(() => {
+        statusEl.innerText = "";
+      }, 4000);
+    } else {
+      statusEl.style.color = "var(--red)";
+      statusEl.innerText = "❌ " + (res.error || "Failed to save customer");
+    }
+  })
+  .catch(err => {
+    statusEl.style.color = "var(--red)";
+    statusEl.innerText = "❌ Error saving customer";
+  });
+}
+
+function renderCustomerDropdown(){
+  const select = document.getElementById("customer_select");
+  if(!select) return;
+  const currentVal = select.value;
+  select.innerHTML = `
+    <option value="">-- Choose Customer to Auto-Fill Details --</option>
+    <option value="__custom__">➕ Manual / New Customer</option>
+  `;
+  customerList.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name + (c.gstin ? ` (${c.gstin})` : '');
+    select.appendChild(opt);
+  });
+  if(currentVal && select.querySelector(`option[value="${currentVal}"]`)){
+    select.value = currentVal;
+  }
+}
+
+function onCustomerDropdownChange(val){
+  const customWrap = document.getElementById("customer_name_custom_wrap");
+  const hiddenName = document.getElementById("customer_name");
+  const customInput = document.getElementById("customer_name_custom");
+  const addr = document.getElementById("customer_address");
+  const gstin = document.getElementById("customer_gstin");
+
+  if(!val){
+    hiddenName.value = "";
+    customWrap.classList.add("hidden");
+    return;
+  }
+  if(val === "__custom__"){
+    customWrap.classList.remove("hidden");
+    hiddenName.value = customInput.value;
+    addr.value = "";
+    gstin.value = "";
+    customInput.focus();
+    return;
+  }
+
+  customWrap.classList.add("hidden");
+  const cust = customerList.find(c => String(c.id) === String(val));
+  if(cust){
+    hiddenName.value = cust.name || "";
+    addr.value = cust.address || "";
+    gstin.value = cust.gstin || "";
+  }
+}
+
+function onCustomCustomerNameInput(val){
+  document.getElementById("customer_name").value = val;
+}
+
+// ---------------------------------------------------------------
+// TRANSPORTER DROPDOWN & PERSISTENCE
+// ---------------------------------------------------------------
+let transporterList = [];
+
+function loadTransporters(selectNameAfterLoad){
+  fetch("/api/transporters")
+    .then(r => r.json())
+    .then(data => {
+      transporterList = data || [];
+      renderTransporterDropdown();
+      if(selectNameAfterLoad){
+        const sel = document.getElementById("transporter_select");
+        sel.value = selectNameAfterLoad;
+        onTransporterSelectChange(sel.value);
+      }
+    })
+    .catch(err => {
+      console.error("Error loading transporters:", err);
+    });
+}
+
+function renderTransporterDropdown(){
+  const select = document.getElementById("transporter_select");
+  if(!select) return;
+  const currentVal = select.value;
+  select.innerHTML = `
+    <option value="">-- Select Transporter --</option>
+    <option value="__custom__">➕ Other / New Transporter...</option>
+  `;
+  transporterList.forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t.name;
+    opt.textContent = t.name;
+    select.appendChild(opt);
+  });
+  if(currentVal && select.querySelector(`option[value="${CSS.escape(currentVal)}"]`)){
+    select.value = currentVal;
+  }
+}
+
+function prepareNewTransporter(){
+  const sel = document.getElementById("transporter_select");
+  sel.value = "__custom__";
+  onTransporterSelectChange("__custom__");
+  const customInput = document.getElementById("transporter_custom");
+  customInput.value = "";
+  document.getElementById("transporter").value = "";
+  customInput.focus();
+}
+
+function onTransporterSelectChange(val){
+  const wrap = document.getElementById("transporter_custom_wrap");
+  const hidden = document.getElementById("transporter");
+  const customInput = document.getElementById("transporter_custom");
+
+  if(!val){
+    hidden.value = "";
+    wrap.classList.add("hidden");
+    return;
+  }
+  if(val === "__custom__"){
+    wrap.classList.remove("hidden");
+    hidden.value = customInput.value.trim();
+    customInput.focus();
+    return;
+  }
+
+  wrap.classList.add("hidden");
+  hidden.value = val;
+}
+
+function onCustomTransporterInput(val){
+  document.getElementById("transporter").value = val.trim();
+}
+
+function saveCurrentTransporterPermanently(){
+  const customInput = document.getElementById("transporter_custom");
+  const val = (customInput.value || document.getElementById("transporter").value || "").trim();
+  const statusEl = document.getElementById("saveTransporterStatus");
+
+  if(!val){
+    alert("Please type a transporter name first.");
+    customInput.focus();
+    return;
+  }
+
+  statusEl.style.color = "var(--blue)";
+  statusEl.innerText = "Saving...";
+
+  fetch("/api/transporters/save", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: val})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success && res.transporter){
+      statusEl.style.color = "var(--green)";
+      statusEl.innerText = "✅ Saved!";
+      loadTransporters(res.transporter.name);
+      setTimeout(() => { statusEl.innerText = ""; }, 3000);
+    } else {
+      statusEl.style.color = "var(--red)";
+      statusEl.innerText = "❌ " + (res.error || "Failed");
+    }
+  })
+  .catch(() => {
+    statusEl.style.color = "var(--red)";
+    statusEl.innerText = "❌ Error";
+  });
+}
+
+// ---------------------------------------------------------------
+// MARKA DROPDOWN & PERSISTENCE
+// ---------------------------------------------------------------
+let markaList = [];
+
+function loadMarkas(selectNameAfterLoad){
+  fetch("/api/markas")
+    .then(r => r.json())
+    .then(data => {
+      markaList = data || [];
+      renderMarkaDropdown();
+      if(selectNameAfterLoad){
+        const sel = document.getElementById("marka_select");
+        sel.value = selectNameAfterLoad;
+        onMarkaSelectChange(sel.value);
+      }
+    })
+    .catch(err => {
+      console.error("Error loading markas:", err);
+    });
+}
+
+function renderMarkaDropdown(){
+  const select = document.getElementById("marka_select");
+  if(!select) return;
+  const currentVal = select.value;
+  select.innerHTML = `
+    <option value="">-- Select Marka --</option>
+    <option value="__custom__">➕ Other / New Marka...</option>
+  `;
+  markaList.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m.name;
+    opt.textContent = m.name;
+    select.appendChild(opt);
+  });
+  if(currentVal && select.querySelector(`option[value="${CSS.escape(currentVal)}"]`)){
+    select.value = currentVal;
+  }
+}
+
+function prepareNewMarka(){
+  const sel = document.getElementById("marka_select");
+  sel.value = "__custom__";
+  onMarkaSelectChange("__custom__");
+  const customInput = document.getElementById("marka_custom");
+  customInput.value = "";
+  document.getElementById("marka").value = "";
+  customInput.focus();
+}
+
+function onMarkaSelectChange(val){
+  const wrap = document.getElementById("marka_custom_wrap");
+  const hidden = document.getElementById("marka");
+  const customInput = document.getElementById("marka_custom");
+
+  if(!val){
+    hidden.value = "";
+    wrap.classList.add("hidden");
+    return;
+  }
+  if(val === "__custom__"){
+    wrap.classList.remove("hidden");
+    hidden.value = customInput.value.trim();
+    customInput.focus();
+    return;
+  }
+
+  wrap.classList.add("hidden");
+  hidden.value = val;
+}
+
+function onCustomMarkaInput(val){
+  document.getElementById("marka").value = val.trim();
+}
+
+function saveCurrentMarkaPermanently(){
+  const customInput = document.getElementById("marka_custom");
+  const val = (customInput.value || document.getElementById("marka").value || "").trim();
+  const statusEl = document.getElementById("saveMarkaStatus");
+
+  if(!val){
+    alert("Please type a marka name first.");
+    customInput.focus();
+    return;
+  }
+
+  statusEl.style.color = "var(--blue)";
+  statusEl.innerText = "Saving...";
+
+  fetch("/api/markas/save", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: val})
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success && res.marka){
+      statusEl.style.color = "var(--green)";
+      statusEl.innerText = "✅ Saved!";
+      loadMarkas(res.marka.name);
+      setTimeout(() => { statusEl.innerText = ""; }, 3000);
+    } else {
+      statusEl.style.color = "var(--red)";
+      statusEl.innerText = "❌ " + (res.error || "Failed");
+    }
+  })
+  .catch(() => {
+    statusEl.style.color = "var(--red)";
+    statusEl.innerText = "❌ Error";
+  });
+}
+
+// Initial loads
+loadCustomers();
+loadTransporters();
+loadMarkas();
+loadProducts();
+loadInvoices();
+
+// ---------------------------------------------------------------
+// PAST & RECENT INVOICES
+// ---------------------------------------------------------------
+let allInvoices = [];
+
+function loadInvoices(){
+  const list = document.getElementById("invoiceList");
+  if(!list) return;
+  list.innerHTML = '<div class="loading" style="padding:24px; text-align:center; color:#555;">⏳ Loading past &amp; recent invoices...</div>';
+  fetch("/invoices")
+    .then(r => r.json())
+    .then(data => {
+      allInvoices = data || [];
+      renderInvoiceList();
+    })
+    .catch(err => {
+      console.error("Error loading invoices:", err);
+      if(list){
+        list.innerHTML = '<div class="empty-msg" style="padding:20px; text-align:center; color:#c00;">Could not load invoices. Please click Refresh List.</div>';
+      }
+    });
+}
+
+function renderInvoiceList(){
+  const searchInput = document.getElementById("searchBox");
+  const search = (searchInput ? searchInput.value : "").toLowerCase().trim();
+  const list = document.getElementById("invoiceList");
+  const countEl = document.getElementById("invoiceCount");
+  if(!list) return;
+
+  let filtered = allInvoices.filter(inv => {
+    if(!search) return true;
+    const no = (inv.invoice_no || "").toLowerCase();
+    const id = String(inv.id || "");
+    const cust = (inv.customer_name || "").toLowerCase();
+    const transp = (inv.transporter || "").toLowerCase();
+    const mrk = (inv.marka || "").toLowerCase();
+    const dt = (inv.bill_date || "").toLowerCase();
+    return no.includes(search) || id.includes(search) || cust.includes(search) || transp.includes(search) || mrk.includes(search) || dt.includes(search);
+  });
+
+  if(countEl){
+    if(allInvoices.length === 0){
+      countEl.innerText = "";
+    } else if(search){
+      countEl.innerText = `Showing ${filtered.length} of ${allInvoices.length} invoices`;
+    } else {
+      countEl.innerText = `Total ${allInvoices.length} invoices (most recent shown first)`;
+    }
+  }
+
+  if(filtered.length === 0){
+    list.innerHTML = `
+      <div class="empty-msg" style="padding:30px 15px; text-align:center; color:#666; background:#f9f9f9; border-radius:8px; border:1px dashed #ccc;">
+        ${allInvoices.length === 0 ? "No invoices created yet. Create an invoice in the 'New Invoice' tab to see it here!" : `No invoices matching "${search}".`}
+      </div>
+    `;
+    return;
+  }
+
+  const latestId = allInvoices.length > 0 ? allInvoices[0].id : null;
+
+  list.innerHTML = filtered.map(inv => {
+    const isRecent = inv.id === latestId;
+    const invTotal = Number(inv.grand_total || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formattedDate = inv.bill_date || 'N/A';
+
+    return `
+      <div class="invoice-card ${isRecent ? 'recent-highlight' : ''}">
+        <div class="info" style="flex:1; min-width:240px;">
+          <b>
+            <span>#${inv.invoice_no || inv.id} — ${inv.customer_name || 'Cash Sale'}</span>
+            ${isRecent ? '<span class="badge-recent">⭐ Most Recent</span>' : ''}
+          </b>
+          <div class="meta-row">
+            <span>📅 <b>Date:</b> ${formattedDate}</span>
+            <span>💰 <b>Total:</b> ₹${invTotal}</span>
+            ${inv.transporter ? `<span>🚚 <b>Transporter:</b> ${inv.transporter}</span>` : ''}
+            ${inv.marka ? `<span>🏷️ <b>Marka:</b> ${inv.marka}</span>` : ''}
+            ${inv.total_qty ? `<span>📦 <b>Qty:</b> ${inv.total_qty}</span>` : ''}
+          </div>
+        </div>
+        <div class="actions">
+          <a class="view-btn" href="/generate_pdf/${inv.id}" target="_blank" rel="noopener">
+            📄 View Bill PDF
+          </a>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+</script>
+
+</body>
+</html>
