@@ -1489,10 +1489,11 @@ def generate_pdf(invoice_id):
     except Exception:
         pass
 
+    is_download = request.args.get("download") == "1"
     return send_file(
         pdf_buffer,
         download_name=f"Invoice_{invoice['invoice_no'] or invoice_id}.pdf",
-        as_attachment=False,
+        as_attachment=is_download,
         mimetype="application/pdf",
     ) 
 

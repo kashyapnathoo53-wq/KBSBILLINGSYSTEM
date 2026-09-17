@@ -324,26 +324,33 @@ button{
   border-radius:4px;
   letter-spacing:0.5px;
 }
-.view-btn{
-  background:var(--blue);
-  color:white;
+.invoice-card .actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.btn-sm-action{
   text-decoration:none;
-  padding:10px 16px;
+  padding:9px 13px;
   border-radius:8px;
-  font-size:14px;
+  font-size:13px;
   font-weight:bold;
   display:inline-flex;
   align-items:center;
-  gap:6px;
+  gap:5px;
   white-space:nowrap;
-  transition:background 0.2s, transform 0.1s;
+  cursor:pointer;
+  transition:all 0.15s;
+  box-shadow:0 1px 3px rgba(0,0,0,0.12);
 }
-.view-btn:hover{
-  background:var(--blue-dark);
-}
-.view-btn:active{
-  transform:scale(0.98);
-}
+.btn-sm-view{ background:var(--blue); color:white; }
+.btn-sm-view:hover{ background:#0b4c96; }
+.btn-sm-download{ background:#495057; color:white; }
+.btn-sm-download:hover{ background:#343a40; }
+.btn-sm-whatsapp{ background:#25D366; color:white; }
+.btn-sm-whatsapp:hover{ background:#20ba5a; }
+.btn-sm-action:active{ transform:scale(0.97); }
 
 .search-box{
   margin-bottom:16px;
@@ -451,9 +458,102 @@ button{
   input, select, textarea{ padding:12px; font-size:16px; min-height:48px; }
   .save-btn{ font-size:19px; padding:16px 12px; }
   .invoice-card{ flex-direction:column; align-items:flex-start; }
-  .invoice-card .actions{ width:100%; }
-  .invoice-card .actions a{ margin-left:0; width:100%; text-align:center; }
+  .invoice-card .actions{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  .invoice-card .actions .btn-sm-whatsapp{ grid-column:span 2; }
+  .invoice-card .actions a{ margin-left:0; width:100%; justify-content:center; text-align:center; padding:12px 8px; font-size:15px; }
 }
+
+/* Full-screen Mobile & Desktop Success Modal */
+.modal-backdrop{
+  position:fixed;
+  top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,0.72);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+  padding:16px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.modal-backdrop.hidden{
+  display:none;
+}
+.modal-card{
+  background:white;
+  width:100%;
+  max-width:440px;
+  border-radius:18px;
+  padding:26px 20px;
+  text-align:center;
+  box-shadow:0 12px 35px rgba(0,0,0,0.35);
+  animation:popIn 0.22s ease-out;
+}
+@keyframes popIn{
+  from{ transform:scale(0.92); opacity:0; }
+  to{ transform:scale(1); opacity:1; }
+}
+.modal-icon{
+  font-size:48px;
+  margin-bottom:8px;
+}
+.modal-card h2{
+  color:#198754;
+  margin:0 0 10px 0;
+  font-size:22px;
+}
+.modal-details{
+  font-size:16px;
+  color:#333;
+  margin-bottom:20px;
+  line-height:1.5;
+  background:#f4fbf6;
+  border:1px solid #c3e6cb;
+  border-radius:12px;
+  padding:12px 14px;
+}
+.modal-buttons{
+  display:flex;
+  flex-direction:column;
+  gap:11px;
+}
+.modal-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:15px;
+  font-size:18px;
+  font-weight:bold;
+  border-radius:10px;
+  text-decoration:none;
+  cursor:pointer;
+  border:none;
+  transition:transform 0.1s, background 0.2s;
+}
+.modal-btn:active{
+  transform:scale(0.98);
+}
+.btn-view{
+  background:#198754;
+  color:white !important;
+}
+.btn-view:hover{ background:#157347; }
+.btn-download{
+  background:#0d6efd;
+  color:white !important;
+}
+.btn-download:hover{ background:#0b5ed7; }
+.btn-whatsapp{
+  background:#25D366;
+  color:white !important;
+}
+.btn-whatsapp:hover{ background:#20bd5a; }
+.btn-new{
+  background:#6c757d;
+  color:white !important;
+}
+.btn-new:hover{ background:#5c636a; }
 
 </style>
 </head>
@@ -625,7 +725,29 @@ button{
 
 </div>
 
+<!-- ============================= FULL-SCREEN SUCCESS MODAL ============================= -->
+<div id="invoiceSuccessModal" class="hidden modal-backdrop">
+  <div class="modal-card">
+    <div class="modal-icon">🎉</div>
+    <h2 id="modalInvoiceTitle">Bill Saved Successfully!</h2>
+    <div id="modalInvoiceDetails" class="modal-details"></div>
 
+    <div class="modal-buttons">
+      <a id="modalViewPdfBtn" href="#" target="_blank" rel="noopener" class="modal-btn btn-view">
+        📄 View / Open Bill PDF
+      </a>
+      <a id="modalDownloadPdfBtn" href="#" class="modal-btn btn-download">
+        📥 Download Bill PDF
+      </a>
+      <a id="modalWhatsappBtn" href="#" target="_blank" rel="noopener" class="modal-btn btn-whatsapp">
+        💬 Share Bill on WhatsApp
+      </a>
+      <button type="button" class="modal-btn btn-new" onclick="closeSuccessModal()">
+        ➕ Create Next Bill
+      </button>
+    </div>
+  </div>
+</div>
 
 </div>
 
@@ -682,12 +804,12 @@ function escapeHtml(str){
 
 function getProductOptionsHtml(selectedVal){
   let html = `<option value="">-- Select Product Name --</option>`;
+  const isCustom = (selectedVal === '__custom__') ? 'selected' : '';
+  html += `<option value="__custom__" ${isCustom}>➕ Type New / Custom Product...</option>`;
   productList.forEach(p => {
     const isSel = (p.name === selectedVal) ? 'selected' : '';
     html += `<option value="${escapeHtml(p.name)}" data-hsn="${escapeHtml(p.hsn || '')}" data-gst="${p.gst || 5}" ${isSel}>${escapeHtml(p.name)}</option>`;
   });
-  const isCustom = (selectedVal === '__custom__') ? 'selected' : '';
-  html += `<option value="__custom__" ${isCustom}>➕ Other / Type Custom Product...</option>`;
   return html;
 }
 
@@ -1014,48 +1136,66 @@ function saveInvoice(){
   let items = [];
   let hasProduct = false;
 
-  document.querySelectorAll("#invoiceBody .product-card").forEach(card=>{
-    let name = card.querySelector(".product").value.trim();
+  document.querySelectorAll("#invoiceBody .product-card").forEach((card, idx)=>{
+    let selVal = card.querySelector(".product-select") ? card.querySelector(".product-select").value : "";
+    let customVal = card.querySelector(".product-custom") ? card.querySelector(".product-custom").value : "";
+    let hiddenVal = card.querySelector(".product") ? card.querySelector(".product").value : "";
+    let name = (selVal && selVal !== "__custom__") ? selVal : (customVal || hiddenVal);
+    name = (name || "").trim();
+    if(!name && (Number(card.querySelector(".rate")?.value || 0) > 0 || Number(card.querySelector(".weight")?.value || 0) > 0)){
+      name = "Item " + (idx + 1);
+    }
     if(name) hasProduct = true;
+
     items.push({
-      product_name: name,
-      hsn_code: card.querySelector(".hsn").value,
-      qty: card.querySelector(".qty").value,
-      qty_unit: card.querySelector(".qty_unit").value,
-      weight: card.querySelector(".weight").value,
-      rate: card.querySelector(".rate").value,
-      gst: card.querySelector(".gst").value
+      product_name: name || ("Item " + (idx + 1)),
+      hsn_code: (card.querySelector(".hsn") ? card.querySelector(".hsn").value : "").trim(),
+      qty: card.querySelector(".qty") ? card.querySelector(".qty").value : "0",
+      qty_unit: card.querySelector(".qty_unit") ? card.querySelector(".qty_unit").value : "Bags",
+      weight: card.querySelector(".weight") ? card.querySelector(".weight").value : "0",
+      rate: card.querySelector(".rate") ? card.querySelector(".rate").value : "0",
+      gst: card.querySelector(".gst") ? card.querySelector(".gst").value : "5"
     });
   });
 
-  let customerName = document.getElementById("customer_name").value.trim();
-  const customCust = document.getElementById("customer_name_custom");
-  if(!customerName && customCust && customCust.value.trim()){
-    customerName = customCust.value.trim();
-    document.getElementById("customer_name").value = customerName;
-  }
-  if(!customerName){
-    alert("Please select or enter the Customer Name before saving.");
-    return;
-  }
-
-  if(!hasProduct){
+  if(items.length === 0){
     alert("Please add at least one product before saving.");
     return;
   }
 
-  let transporterVal = document.getElementById("transporter").value.trim();
+  let customerName = (document.getElementById("customer_name") ? document.getElementById("customer_name").value : "").trim();
+  const customCust = document.getElementById("customer_name_custom");
+  if(!customerName && customCust && customCust.value.trim()){
+    customerName = customCust.value.trim();
+  }
+  const custSel = document.getElementById("customer_select");
+  if(!customerName && custSel && custSel.value && custSel.value !== "__custom__"){
+    const selOpt = custSel.options[custSel.selectedIndex];
+    if(selOpt) customerName = selOpt.text.replace(/\s*\(.*?\)\s*$/, '').trim();
+  }
+  if(!customerName){
+    customerName = "Cash Sale";
+  }
+  if(document.getElementById("customer_name")) document.getElementById("customer_name").value = customerName;
+
+  let transporterVal = (document.getElementById("transporter") ? document.getElementById("transporter").value : "").trim();
   const customTrans = document.getElementById("transporter_custom");
   if(!transporterVal && customTrans && customTrans.value.trim()){
     transporterVal = customTrans.value.trim();
-    document.getElementById("transporter").value = transporterVal;
+  }
+  const transSel = document.getElementById("transporter_select");
+  if(!transporterVal && transSel && transSel.value && transSel.value !== "__custom__"){
+    transporterVal = transSel.value;
   }
 
-  let markaVal = document.getElementById("marka").value.trim();
+  let markaVal = (document.getElementById("marka") ? document.getElementById("marka").value : "").trim();
   const customMarka = document.getElementById("marka_custom");
   if(!markaVal && customMarka && customMarka.value.trim()){
     markaVal = customMarka.value.trim();
-    document.getElementById("marka").value = markaVal;
+  }
+  const markaSel = document.getElementById("marka_select");
+  if(!markaVal && markaSel && markaSel.value && markaSel.value !== "__custom__"){
+    markaVal = markaSel.value;
   }
 
   const data = {
@@ -1073,7 +1213,7 @@ function saveInvoice(){
 
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
-  btn.innerText = "Saving...";
+  btn.innerText = "⏳ Saving...";
 
   fetch("/save_invoice", {
     method: "POST",
@@ -1104,29 +1244,27 @@ function saveInvoice(){
     const pdfLink = document.getElementById("pdfLinkBtn");
     pdfLink.href = res.pdf_url;
     document.getElementById("successBanner").classList.remove("hidden");
-    document.getElementById("successBanner").scrollIntoView({behavior:"smooth"});
 
-    // Automatically open the bill PDF
-    let opened = false;
-    try {
-      const w = window.open(res.pdf_url, "_blank");
-      if (w && !w.closed && typeof w.closed !== "undefined") {
-        opened = true;
-      }
-    } catch(e) {
-      opened = false;
+    // Open the full-screen mobile/desktop success modal!
+    const modal = document.getElementById("invoiceSuccessModal");
+    if(modal){
+      document.getElementById("modalInvoiceTitle").innerText = `Bill #${res.invoice_id} Saved!`;
+      document.getElementById("modalInvoiceDetails").innerHTML = `
+        <div style="font-size:18px; font-weight:bold; color:var(--gold); margin-bottom:6px;">${escapeHtml(customerName || 'Cash Sale')}</div>
+        <div style="font-size:16px;">Total Bill Amount: <b style="font-size:20px; color:#198754;">₹${Number(res.total).toLocaleString('en-IN', {minimumFractionDigits:2})}</b></div>
+        <div style="font-size:13px; color:#666; margin-top:6px;">Date: ${document.getElementById("billDate").value || 'Today'}</div>
+      `;
+      document.getElementById("modalViewPdfBtn").href = res.pdf_url;
+      document.getElementById("modalDownloadPdfBtn").href = res.pdf_url + "?download=1";
+
+      const fullPdfUrl = window.location.origin + res.pdf_url;
+      const shareText = encodeURIComponent(`*Sri Radhe Enterprises*\nInvoice #${res.invoice_id}\nParty: ${customerName || 'Cash Sale'}\nTotal: ₹${Number(res.total).toLocaleString('en-IN', {minimumFractionDigits:2})}\n\nView Bill PDF:\n${fullPdfUrl}`);
+      document.getElementById("modalWhatsappBtn").href = `https://api.whatsapp.com/send?text=${shareText}`;
+
+      modal.classList.remove("hidden");
     }
 
-    // On mobile devices (iOS Safari / Android), popups inside async calls are blocked.
-    // Automatically redirect so the bill PDF opens directly on the phone!
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
-    if (!opened && isMobile) {
-      setTimeout(() => {
-        window.location.href = res.pdf_url;
-      }, 400);
-    }
-
-    resetForm();
+    loadInvoices();
     loadCustomers();
     loadTransporters();
     loadMarkas();
@@ -1137,6 +1275,13 @@ function saveInvoice(){
     btn.innerText = "💾 Save Invoice & Get Bill";
     alert("Connection error: " + (err.message || "Could not reach server. Please check internet."));
   });
+}
+
+function closeSuccessModal(){
+  const modal = document.getElementById("invoiceSuccessModal");
+  if(modal) modal.classList.add("hidden");
+  resetForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ---------------------------------------------------------------
@@ -1602,8 +1747,14 @@ function renderInvoiceList(){
           </div>
         </div>
         <div class="actions">
-          <a class="view-btn" href="/generate_pdf/${inv.id}" target="_blank" rel="noopener">
-            📄 View Bill PDF
+          <a class="btn-sm-action btn-sm-view" href="/generate_pdf/${inv.id}" target="_blank" rel="noopener">
+            📄 View PDF
+          </a>
+          <a class="btn-sm-action btn-sm-download" href="/generate_pdf/${inv.id}?download=1">
+            📥 Download
+          </a>
+          <a class="btn-sm-action btn-sm-whatsapp" href="https://api.whatsapp.com/send?text=${encodeURIComponent('*Sri Radhe Enterprises*\nInvoice #' + (inv.invoice_no || inv.id) + '\nParty: ' + (inv.customer_name || 'Cash Sale') + '\nTotal: ₹' + invTotal + '\n\nView Bill PDF:\n' + window.location.origin + '/generate_pdf/' + inv.id)}" target="_blank" rel="noopener">
+            💬 WhatsApp
           </a>
         </div>
       </div>
