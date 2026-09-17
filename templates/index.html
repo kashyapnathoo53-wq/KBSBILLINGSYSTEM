@@ -243,28 +243,38 @@ button{
 #successBanner{
   margin-top:18px;
   background:#e8f8ea;
-  border:2px solid var(--green);
-  border-radius:10px;
-  padding:18px;
+  border:3px solid var(--green);
+  border-radius:12px;
+  padding:20px 16px;
   text-align:center;
+  box-shadow:0 4px 14px rgba(25, 135, 84, 0.2);
 }
 
 #successBanner p{
   font-size:20px;
   font-weight:bold;
-  color:var(--green);
-  margin:0 0 12px 0;
+  color:#0f5132;
+  margin:0 0 14px 0;
+  line-height:1.4;
 }
 
 .pdf-link-btn{
   display:inline-block;
-  background:var(--green);
-  color:white;
+  background:#198754;
+  color:white !important;
   text-decoration:none;
-  padding:16px 26px;
-  border-radius:8px;
+  padding:16px 28px;
+  border-radius:10px;
   font-size:20px;
   font-weight:bold;
+  box-shadow:0 3px 8px rgba(0,0,0,0.2);
+  transition:background 0.2s, transform 0.1s;
+}
+.pdf-link-btn:hover{
+  background:#157347;
+}
+.pdf-link-btn:active{
+  transform:scale(0.98);
 }
 
 /* Past invoices view */
@@ -1070,27 +1080,51 @@ function saveInvoice(){
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data)
   })
-  .then(r => r.json())
-  .then(res=>{
+  .then(async r => {
+    let res = null;
+    try {
+      res = await r.json();
+    } catch(e) {
+      res = null;
+    }
+
     btn.disabled = false;
     btn.innerText = "💾 Save Invoice & Get Bill";
 
-    if(!res.success){
-      alert("Something went wrong. Please try again.");
+    if(!r.ok || !res || !res.success){
+      const errMsg = (res && (res.error || res.message)) || ("Server returned error " + r.status);
+      alert("Error saving invoice: " + errMsg);
       return;
     }
 
     // Show the big success banner with the PDF link.
-    document.getElementById("successMsg").innerText =
-      "Invoice #" + res.invoice_id + " saved! Total: ₹" + res.total;
+    document.getElementById("successMsg").innerHTML =
+      `🎉 <b>Invoice #${res.invoice_id} saved successfully!</b><br/><span style="font-size:17px; color:#222; font-weight:normal;">Total Bill Amount: <b>₹${Number(res.total).toLocaleString('en-IN', {minimumFractionDigits:2})}</b></span>`;
 
     const pdfLink = document.getElementById("pdfLinkBtn");
     pdfLink.href = res.pdf_url;
     document.getElementById("successBanner").classList.remove("hidden");
     document.getElementById("successBanner").scrollIntoView({behavior:"smooth"});
 
-    // Automatically open the bill PDF in a new tab.
-    window.open(res.pdf_url, "_blank");
+    // Automatically open the bill PDF
+    let opened = false;
+    try {
+      const w = window.open(res.pdf_url, "_blank");
+      if (w && !w.closed && typeof w.closed !== "undefined") {
+        opened = true;
+      }
+    } catch(e) {
+      opened = false;
+    }
+
+    // On mobile devices (iOS Safari / Android), popups inside async calls are blocked.
+    // Automatically redirect so the bill PDF opens directly on the phone!
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    if (!opened && isMobile) {
+      setTimeout(() => {
+        window.location.href = res.pdf_url;
+      }, 400);
+    }
 
     resetForm();
     loadCustomers();
@@ -1098,10 +1132,10 @@ function saveInvoice(){
     loadMarkas();
     loadProducts();
   })
-  .catch(err=>{
+  .catch(err => {
     btn.disabled = false;
     btn.innerText = "💾 Save Invoice & Get Bill";
-    alert("Error saving invoice. Please check your internet connection and try again.");
+    alert("Connection error: " + (err.message || "Could not reach server. Please check internet."));
   });
 }
 

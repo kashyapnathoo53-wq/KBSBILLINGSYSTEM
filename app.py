@@ -2,6 +2,8 @@ import os
 import sqlite3
 import csv
 import html
+import io
+import shutil
 try:
     import openpyxl
 except ImportError:
@@ -33,9 +35,50 @@ def add_cache_control_headers(response):
     response.headers["Expires"] = "0"
     return response
 
-DB_NAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "billing.db")
-PDF_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_pdfs")
-os.makedirs(PDF_DIR, exist_ok=True)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def _is_serverless():
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        return True
+    try:
+        test_file = os.path.join(BASE_DIR, ".test_write")
+        with open(test_file, "w") as f:
+            f.write("1")
+        os.remove(test_file)
+        return False
+    except Exception:
+        return True
+
+IS_SERVERLESS = _is_serverless()
+
+def get_db_path():
+    if IS_SERVERLESS:
+        tmp_dir = "/tmp" if os.name != "nt" else os.environ.get("TEMP", "C:\\temp")
+        os.makedirs(tmp_dir, exist_ok=True)
+        tmp_db = os.path.join(tmp_dir, "billing.db")
+        bundled_db = os.path.join(BASE_DIR, "billing.db")
+        if not os.path.exists(tmp_db) and os.path.exists(bundled_db):
+            try:
+                shutil.copy2(bundled_db, tmp_db)
+            except Exception:
+                pass
+        return tmp_db
+    return os.path.join(BASE_DIR, "billing.db")
+
+def get_pdf_dir():
+    if IS_SERVERLESS:
+        tmp_dir = "/tmp/generated_pdfs" if os.name != "nt" else os.path.join(os.environ.get("TEMP", "C:\\temp"), "generated_pdfs")
+        os.makedirs(tmp_dir, exist_ok=True)
+        return tmp_dir
+    p_dir = os.path.join(BASE_DIR, "generated_pdfs")
+    try:
+        os.makedirs(p_dir, exist_ok=True)
+    except Exception:
+        pass
+    return p_dir
+
+DB_NAME = get_db_path()
+PDF_DIR = get_pdf_dir()
 
 # =====================================================================
 # COMPANY DETAILS (fixed) - edit these once, they appear on every bill
@@ -59,7 +102,7 @@ COMPANY = {
 # DATABASE
 # =====================================================================
 def get_db():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(get_db_path(), timeout=15)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -831,8 +874,8 @@ def upload_customers():
     if ext not in [".csv", ".xlsx"]:
         return jsonify({"success": False, "error": "Only .csv or .xlsx files are supported"}), 400
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    saved_path = os.path.join(base_dir, f"customers_imported{ext}")
+    saved_dir = get_pdf_dir()
+    saved_path = os.path.join(saved_dir, f"customers_imported{ext}")
     file.save(saved_path)
     count = sync_customers_from_file(saved_path)
     return jsonify({
@@ -844,165 +887,174 @@ def upload_customers():
 
 @app.route("/save_invoice", methods=["POST"])
 def save_invoice():
-    data = request.json or {}
+    try:
+        data = request.json or {}
 
-    items = data.get("items", [])
+        items = data.get("items", [])
 
-    subtotal = 0.0
-    gst_total = 0.0
-    total_qty = 0.0
-    net_weight = 0.0
+        subtotal = 0.0
+        gst_total = 0.0
+        total_qty = 0.0
+        net_weight = 0.0
 
-    cleaned_items = []
-    for item in items:
-        qty = float(item.get("qty") or 0)
-        weight = float(item.get("weight") or 0 )
-        rate = float(item.get("rate") or 0)
-        gst = float(item.get("gst") or 0)
+        cleaned_items = []
+        for item in items:
+            qty = float(item.get("qty") or 0)
+            weight = float(item.get("weight") or 0 )
+            rate = float(item.get("rate") or 0)
+            gst = float(item.get("gst") or 0)
 
-        amount = weight * rate
-        tax_amount = amount * gst / 100
+            amount = weight * rate
+            tax_amount = amount * gst / 100
 
-        subtotal += amount
-        gst_total += tax_amount
-        total_qty += qty
-        net_weight += weight
+            subtotal += amount
+            gst_total += tax_amount
+            total_qty += qty
+            net_weight += weight
 
-        cleaned_items.append({
-            "product_name": item.get("product_name", ""),
-            "hsn_code": item.get("hsn_code", ""),
-            "qty": qty,
-            "qty_unit": item.get("qty_unit", ""),
-            "weight": weight,
-            "rate": rate,
-            "gst": gst,
-            "amount": amount,
-            "tax_amount": tax_amount,
-        })
+            cleaned_items.append({
+                "product_name": item.get("product_name", ""),
+                "hsn_code": item.get("hsn_code", ""),
+                "qty": qty,
+                "qty_unit": item.get("qty_unit", ""),
+                "weight": weight,
+                "rate": rate,
+                "gst": gst,
+                "amount": amount,
+                "tax_amount": tax_amount,
+            })
 
-    labour = float(data.get("labour_amount") or 0)
-    grand_total = subtotal + gst_total + labour
+        labour = float(data.get("labour_amount") or 0)
+        grand_total = subtotal + gst_total + labour
 
-    conn = get_db()
-    cur = conn.cursor()
+        conn = get_db()
+        cur = conn.cursor()
 
-    cur.execute("""
-    INSERT INTO invoices(
-        invoice_no, bill_date, delivery_type, customer_name, customer_address,
-        customer_gstin, state_code, transporter, marka, labour_amount, remarks,
-        subtotal, gst_total, grand_total, net_weight, total_qty
-    )
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, (
-        data.get("invoice_no", ""),
-        data.get("bill_date", ""),
-        data.get("delivery_type", ""),
-        data.get("customer_name", ""),
-        data.get("customer_address", ""),
-        data.get("customer_gstin", ""),
-        data.get("state_code", ""),
-        data.get("transporter", ""),
-        data.get("marka", ""),
-        labour,
-        data.get("remarks", ""),
-        subtotal,
-        gst_total,
-        grand_total,
-        net_weight,
-        total_qty,
-    ))
+        cur.execute("""
+        INSERT INTO invoices(
+            invoice_no, bill_date, delivery_type, customer_name,
+            customer_address, customer_gstin, state_code, transporter,
+            marka, labour_amount, remarks, subtotal, gst_total,
+            grand_total, net_weight, total_qty
+        )
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            data.get("invoice_no", ""),
+            data.get("bill_date", ""),
+            data.get("delivery_type", ""),
+            data.get("customer_name", ""),
+            data.get("customer_address", ""),
+            data.get("customer_gstin", ""),
+            data.get("state_code", ""),
+            data.get("transporter", ""),
+            data.get("marka", ""),
+            labour,
+            data.get("remarks", ""),
+            subtotal,
+            gst_total,
+            grand_total,
+            net_weight,
+            total_qty,
+        ))
 
-    invoice_id = cur.lastrowid
+        invoice_id = cur.lastrowid
 
-    # Auto-save or update customer in customers list permanently
-    cust_n = (data.get("customer_name") or "").strip()
-    cust_a = (data.get("customer_address") or "").strip()
-    cust_g = (data.get("customer_gstin") or "").strip().upper()
-    if cust_n:
-        try:
-            cur.execute("""
-            INSERT INTO customers(name, address, gstin)
-            VALUES(?,?,?)
-            ON CONFLICT(name) DO UPDATE SET
-                address=excluded.address,
-                gstin=excluded.gstin
-            """, (cust_n, cust_a, cust_g))
-        except Exception:
-            pass
-
-    # Auto-save transporter in transporters list permanently
-    transp_n = (data.get("transporter") or "").strip()
-    if transp_n:
-        try:
-            cur.execute("""
-            INSERT INTO transporters(name)
-            VALUES(?)
-            ON CONFLICT(name) DO NOTHING
-            """, (transp_n,))
-        except Exception:
-            pass
-
-    # Auto-save marka in markas list permanently
-    marka_n = (data.get("marka") or "").strip()
-    if marka_n:
-        try:
-            cur.execute("""
-            INSERT INTO markas(name)
-            VALUES(?)
-            ON CONFLICT(name) DO NOTHING
-            """, (marka_n,))
-        except Exception:
-            pass
-
-    # Auto-save all products in products table permanently
-    for item in cleaned_items:
-        p_name = (item.get("product_name") or "").strip()
-        p_hsn = (item.get("hsn_code") or "").strip()
-        p_gst = float(item.get("gst") or 5.0)
-        if p_name:
+        # Auto-save or update customer in customers list permanently
+        cust_n = (data.get("customer_name") or "").strip()
+        cust_a = (data.get("customer_address") or "").strip()
+        cust_g = (data.get("customer_gstin") or "").strip().upper()
+        if cust_n:
             try:
                 cur.execute("""
-                INSERT INTO products(name, hsn, gst)
+                INSERT INTO customers(name, address, gstin)
                 VALUES(?,?,?)
                 ON CONFLICT(name) DO UPDATE SET
-                    hsn = CASE WHEN excluded.hsn != '' THEN excluded.hsn ELSE products.hsn END,
-                    gst = excluded.gst
-                """, (p_name, p_hsn, p_gst))
+                    address=excluded.address,
+                    gstin=excluded.gstin
+                """, (cust_n, cust_a, cust_g))
             except Exception:
                 pass
 
-    for item in cleaned_items:
-        cur.execute("""
-        INSERT INTO invoice_items(
-            invoice_id, product_name, hsn_code, qty, qty_unit, weight, rate,
-            gst, amount, tax_amount
-        )
-        VALUES(?,?,?,?,?,?,?,?,?,?)
-        """, (
-            invoice_id,
-            item["product_name"],
-            item["hsn_code"],
-            item["qty"],
-            item["qty_unit"],
-            item["weight"],
-            item["rate"],
-            item["gst"],
-            item["amount"],
-            item["tax_amount"],
-        ))
+        # Auto-save transporter in transporters list permanently
+        transp_n = (data.get("transporter") or "").strip()
+        if transp_n:
+            try:
+                cur.execute("""
+                INSERT INTO transporters(name)
+                VALUES(?)
+                ON CONFLICT(name) DO NOTHING
+                """, (transp_n,))
+            except Exception:
+                pass
 
-    conn.commit()
-    conn.close()
+        # Auto-save marka in markas list permanently
+        marka_n = (data.get("marka") or "").strip()
+        if marka_n:
+            try:
+                cur.execute("""
+                INSERT INTO markas(name)
+                VALUES(?)
+                ON CONFLICT(name) DO NOTHING
+                """, (marka_n,))
+            except Exception:
+                pass
 
-    return jsonify({
-        "success": True,
-        "invoice_id": invoice_id,
-        "subtotal": round(subtotal, 2),
-        "gst_total": round(gst_total, 2),
-        "total": round(grand_total, 2),
-        "pdf_url": f"/generate_pdf/{invoice_id}",
-        "message": "Invoice Saved Successfully",
-    })
+        # Auto-save all products in products table permanently
+        for item in cleaned_items:
+            p_name = (item.get("product_name") or "").strip()
+            p_hsn = (item.get("hsn_code") or "").strip()
+            p_gst = float(item.get("gst") or 5.0)
+            if p_name:
+                try:
+                    cur.execute("""
+                    INSERT INTO products(name, hsn, gst)
+                    VALUES(?,?,?)
+                    ON CONFLICT(name) DO UPDATE SET
+                        hsn = CASE WHEN excluded.hsn != '' THEN excluded.hsn ELSE products.hsn END,
+                        gst = excluded.gst
+                    """, (p_name, p_hsn, p_gst))
+                except Exception:
+                    pass
+
+        for item in cleaned_items:
+            cur.execute("""
+            INSERT INTO invoice_items(
+                invoice_id, product_name, hsn_code, qty, qty_unit, weight, rate,
+                gst, amount, tax_amount
+            )
+            VALUES(?,?,?,?,?,?,?,?,?,?)
+            """, (
+                invoice_id,
+                item["product_name"],
+                item["hsn_code"],
+                item["qty"],
+                item["qty_unit"],
+                item["weight"],
+                item["rate"],
+                item["gst"],
+                item["amount"],
+                item["tax_amount"],
+            ))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "invoice_id": invoice_id,
+            "subtotal": round(subtotal, 2),
+            "gst_total": round(gst_total, 2),
+            "total": round(grand_total, 2),
+            "pdf_url": f"/generate_pdf/{invoice_id}",
+            "message": "Invoice Saved Successfully",
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 @app.route("/invoices")
@@ -1109,10 +1161,10 @@ def generate_pdf(invoice_id):
     ).fetchall()
     conn.close()
 
-    pdf_path = os.path.join(PDF_DIR, f"invoice_{invoice_id}.pdf")
+    pdf_buffer = io.BytesIO()
 
     doc = SimpleDocTemplate(
-        pdf_path, pagesize=A4,
+        pdf_buffer, pagesize=A4,
         leftMargin=8 * mm, rightMargin=8 * mm,
         topMargin=8 * mm, bottomMargin=8 * mm,
     )
@@ -1425,9 +1477,20 @@ def generate_pdf(invoice_id):
     story.append(sig_tbl)
 
     doc.build(story, onFirstPage=draw_border)
+    pdf_buffer.seek(0)
+
+    # Cache to disk if directory is writable
+    try:
+        p_dir = get_pdf_dir()
+        if p_dir and os.access(p_dir, os.W_OK):
+            p_file = os.path.join(p_dir, f"invoice_{invoice_id}.pdf")
+            with open(p_file, "wb") as f:
+                f.write(pdf_buffer.getvalue())
+    except Exception:
+        pass
 
     return send_file(
-        os.path.abspath(pdf_path),
+        pdf_buffer,
         download_name=f"Invoice_{invoice['invoice_no'] or invoice_id}.pdf",
         as_attachment=False,
         mimetype="application/pdf",
