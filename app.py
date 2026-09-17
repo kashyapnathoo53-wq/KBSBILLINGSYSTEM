@@ -4,6 +4,7 @@ import csv
 import html
 import io
 import shutil
+import base64
 try:
     import openpyxl
 except ImportError:
@@ -1039,13 +1040,55 @@ def save_invoice():
         conn.commit()
         conn.close()
 
+        invoice_dict = {
+            "id": invoice_id,
+            "invoice_no": data.get("invoice_no", ""),
+            "bill_date": data.get("bill_date", "") or data.get("date", ""),
+            "delivery_type": data.get("delivery_type", ""),
+            "customer_name": data.get("customer_name", ""),
+            "customer_address": data.get("customer_address", ""),
+            "customer_gstin": data.get("customer_gstin", ""),
+            "state_code": data.get("state_code", ""),
+            "transporter": data.get("transporter", ""),
+            "marka": data.get("marka", ""),
+            "labour_amount": labour,
+            "remarks": data.get("remarks", ""),
+            "subtotal": subtotal,
+            "gst_total": gst_total,
+            "grand_total": grand_total,
+            "net_weight": net_weight,
+            "total_qty": total_qty,
+        }
+
+        # Build PDF immediately in-memory
+        pdf_bytes = build_invoice_pdf_bytes(invoice_dict, cleaned_items)
+        pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        inv_no_val = invoice_dict.get("invoice_no") or invoice_id
+        pdf_filename = f"Invoice_{inv_no_val}.pdf"
+
+        # Cache on disk if writable
+        try:
+            p_dir = get_pdf_dir()
+            if p_dir and os.access(p_dir, os.W_OK):
+                p_file = os.path.join(p_dir, f"invoice_{invoice_id}.pdf")
+                with open(p_file, "wb") as f:
+                    f.write(pdf_bytes)
+        except Exception:
+            pass
+
         return jsonify({
             "success": True,
             "invoice_id": invoice_id,
+            "invoice_no": inv_no_val,
+            "customer_name": invoice_dict["customer_name"],
             "subtotal": round(subtotal, 2),
             "gst_total": round(gst_total, 2),
             "total": round(grand_total, 2),
             "pdf_url": f"/generate_pdf/{invoice_id}",
+            "pdf_base64": pdf_b64,
+            "pdf_filename": pdf_filename,
+            "invoice": invoice_dict,
+            "items": cleaned_items,
             "message": "Invoice Saved Successfully",
         })
     except Exception as e:
@@ -1145,21 +1188,30 @@ def draw_border(canvas, doc):
     canvas.restoreState()
 
 
-@app.route("/generate_pdf/<int:invoice_id>")
-def generate_pdf(invoice_id):
-    conn = get_db()
-    invoice = conn.execute(
-        "SELECT * FROM invoices WHERE id=?", (invoice_id,)
-    ).fetchone()
+def to_dict(row):
+    if row is None:
+        return {}
+    if isinstance(row, dict):
+        return dict(row)
+    try:
+        return dict(row)
+    except Exception:
+        pass
+    res = {}
+    for key in dir(row):
+        if not key.startswith("_"):
+            try:
+                res[key] = getattr(row, key)
+            except Exception:
+                pass
+    return res
 
-    if invoice is None:
-        conn.close()
-        return "Invoice not found", 404
 
-    items = conn.execute(
-        "SELECT * FROM invoice_items WHERE invoice_id=?", (invoice_id,)
-    ).fetchall()
-    conn.close()
+def build_invoice_pdf_bytes(invoice_data, items_data):
+    invoice = to_dict(invoice_data)
+    raw_items = items_data or []
+    items = [to_dict(it) for it in raw_items]
+    invoice_id = invoice.get("id") or invoice.get("invoice_no") or 1
 
     pdf_buffer = io.BytesIO()
 
@@ -1226,13 +1278,13 @@ def generate_pdf(invoice_id):
     story.append(Spacer(1, 4))
 
     # 2. DATE ROW & DELIVERY BOX
-    deliv = (invoice["delivery_type"] or "").strip()
+    deliv = (invoice.get("delivery_type") or "").strip()
     deliv_label = f"({deliv.upper()})" if deliv else "(HOME DELIVERY)"
 
     date_table_data = [
         [
             Paragraph('Date:', cell_b),
-            Paragraph(format_date(invoice['bill_date']), cell_b_center),
+            Paragraph(format_date(invoice.get('bill_date')), cell_b_center),
             '',
             Paragraph(deliv_label, cell_b_center)
         ]
@@ -1252,12 +1304,12 @@ def generate_pdf(invoice_id):
     # 3. CUSTOMER INFO GRID - 4 columns
     c0, c1, c2, c3 = W * 0.38, W * 0.31, W * 0.17, W * 0.14
 
-    state_code = (invoice["state_code"] or "").strip()
-    cust_gstin = (invoice["customer_gstin"] or "").strip()
+    state_code = (invoice.get("state_code") or "").strip()
+    cust_gstin = (invoice.get("customer_gstin") or "").strip()
     if not state_code and cust_gstin and len(cust_gstin) >= 2 and cust_gstin[:2].isdigit():
         state_code = str(int(cust_gstin[:2]))
 
-    addr_full = (invoice["customer_address"] or "").strip()
+    addr_full = (invoice.get("customer_address") or "").strip()
     addr_lines = [l.strip() for l in addr_full.split("\n") if l.strip()]
     if len(addr_lines) >= 2:
         addr1 = addr_lines[0]
@@ -1274,19 +1326,20 @@ def generate_pdf(invoice_id):
         addr1 = ""
         addr2 = ""
 
-    grand_total_num = float(invoice["grand_total"] or 0)
+    grand_total_num = float(invoice.get("grand_total") or 0)
     bill_amt_str = f"{SYM}{round(grand_total_num):,}"
 
-    net_wt_val = invoice["net_weight"] or 0
-    tot_qty_val = invoice["total_qty"] or 0
+    net_wt_val = invoice.get("net_weight") or 0
+    tot_qty_val = invoice.get("total_qty") or 0
     net_wt_str = f"{net_wt_val:g}" if isinstance(net_wt_val, (int, float)) else str(net_wt_val)
     tot_qty_str = f"{tot_qty_val:g}" if isinstance(tot_qty_val, (int, float)) else str(tot_qty_val)
 
+    inv_no_display = invoice.get('invoice_no') or invoice_id
     info_data = [
         [Paragraph('Invoice for', cell_s_center), Paragraph('Invoice No.', cell_s_center), Paragraph('Transporter Details', cell_s_center), ''],
-        [Paragraph(xml_esc(invoice['customer_name'] or ''), cell_b_center), Paragraph(xml_esc(str(invoice['invoice_no'] or invoice_id)), cell_b_center), Paragraph(xml_esc(invoice['transporter'] or ''), cell_b_center), ''],
+        [Paragraph(xml_esc(invoice.get('customer_name') or ''), cell_b_center), Paragraph(xml_esc(str(inv_no_display)), cell_b_center), Paragraph(xml_esc(invoice.get('transporter') or ''), cell_b_center), ''],
         [Paragraph(xml_esc(addr1), cell_s_center), Paragraph('State Code', cell_s_center), Paragraph('Marka', cell_s_center), ''],
-        [Paragraph(xml_esc(addr2), cell_b_center), Paragraph(xml_esc(state_code), cell_b_center), Paragraph(xml_esc(invoice['marka'] or ''), cell_b_center), ''],
+        [Paragraph(xml_esc(addr2), cell_b_center), Paragraph(xml_esc(state_code), cell_b_center), Paragraph(xml_esc(invoice.get('marka') or ''), cell_b_center), ''],
         [Paragraph('GSTIN', cell_s_center), Paragraph('Bill Amount', cell_s_center), Paragraph('Net Weight in K.G', cell_s_center), Paragraph('Total Qty', cell_s_center)],
         [Paragraph(xml_esc(cust_gstin), cell_b_center), Paragraph(bill_amt_str, cell_b_center), Paragraph(net_wt_str, cell_b_center), Paragraph(tot_qty_str, cell_b_center)]
     ]
@@ -1333,7 +1386,7 @@ def generate_pdf(invoice_id):
         W - (26 + W * 0.26 + 55 + 46 + 52 + 48 + 66 + 30)
     ]
 
-    items_data = [items_header]
+    items_data_table = [items_header]
     calc_total_qty = 0.0
     calc_total_wt = 0.0
     calc_total_amt = 0.0
@@ -1343,25 +1396,25 @@ def generate_pdf(invoice_id):
     for i in range(1, num_rows + 1):
         if i <= len(items):
             it = items[i - 1]
-            q_val = it['qty'] or 0
-            w_val = it['weight'] or 0
-            r_val = it['rate'] or 0
-            a_val = it['amount'] or 0
-            g_val = it['gst'] or 0
-            t_val = it['tax_amount'] or 0
+            q_val = float(it.get('qty') or 0)
+            w_val = float(it.get('weight') or 0)
+            r_val = float(it.get('rate') or 0)
+            a_val = float(it.get('amount') or (w_val * r_val))
+            g_val = float(it.get('gst') or 0)
+            t_val = float(it.get('tax_amount') or (a_val * g_val / 100))
 
             calc_total_qty += q_val
             calc_total_wt += w_val
             calc_total_amt += a_val
             calc_total_tax += t_val
 
-            unit_str = f" {it['qty_unit']}" if it['qty_unit'] else ""
+            unit_str = f" {it.get('qty_unit')}" if it.get('qty_unit') else ""
             qty_text = f"{q_val:g}{unit_str}"
 
-            items_data.append([
+            items_data_table.append([
                 Paragraph(str(i), cell_s_center),
-                Paragraph(xml_esc(it['product_name'] or ''), cell_s),
-                Paragraph(xml_esc(it['hsn_code'] or ''), cell_s_center),
+                Paragraph(xml_esc(it.get('product_name') or ''), cell_s),
+                Paragraph(xml_esc(it.get('hsn_code') or ''), cell_s_center),
                 Paragraph(xml_esc(qty_text), cell_s_center),
                 Paragraph(f"{w_val:g}", cell_s_center),
                 Paragraph(f"{SYM}{r_val:,.2f}", cell_s_center),
@@ -1370,14 +1423,14 @@ def generate_pdf(invoice_id):
                 Paragraph(f"{SYM}{t_val:,.2f}", cell_s_center),
             ])
         else:
-            items_data.append([
+            items_data_table.append([
                 Paragraph(str(i), cell_s_center),
                 '', '', '', '', '', '', '', ''
             ])
 
     display_qty = tot_qty_val if tot_qty_val else calc_total_qty
     display_wt = net_wt_val if net_wt_val else calc_total_wt
-    items_data.append([
+    items_data_table.append([
         Paragraph('<b>Total</b>', cell_b_center),
         '', '',
         Paragraph(f'<b>{display_qty:g}</b>', cell_b_center),
@@ -1388,7 +1441,7 @@ def generate_pdf(invoice_id):
         Paragraph(f'<b>{SYM}{calc_total_tax:,.2f}</b>', cell_b_center),
     ])
 
-    items_table = Table(items_data, colWidths=col_w)
+    items_table = Table(items_data_table, colWidths=col_w)
     items_table.setStyle(TableStyle([
         ('BOX', (0,0), (-1,-1), 0.75, colors.black),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
@@ -1410,17 +1463,17 @@ def generate_pdf(invoice_id):
         Paragraph(f"IFSC Code: <b>{COMPANY['bank_ifsc']}</b>", cell_s),
     ]
 
-    custom_remark = (invoice["remarks"] or "").strip()
+    custom_remark = (invoice.get("remarks") or "").strip()
     if not custom_remark:
-        custom_remark = f"MARK {invoice['marka'] or ''}".strip()
+        custom_remark = f"MARK {invoice.get('marka') or ''}".strip()
     remarks_text = [
         Paragraph('<b>Remarks:-</b>', cell_s),
         Paragraph(f"<b>{xml_esc(custom_remark)}</b>", cell_b),
     ]
 
     # Subtotal before labour bardana
-    subtotal_with_tax = float(invoice["subtotal"] or calc_total_amt) + float(invoice["gst_total"] or calc_total_tax)
-    labour_amount = float(invoice["labour_amount"] or 0)
+    subtotal_with_tax = float(invoice.get("subtotal") or calc_total_amt) + float(invoice.get("gst_total") or calc_total_tax)
+    labour_amount = float(invoice.get("labour_amount") or 0)
     labour_str = f"{SYM}{labour_amount:,.2f}" if labour_amount > 0 else ""
 
     totals_subtable = Table([
@@ -1478,6 +1531,43 @@ def generate_pdf(invoice_id):
 
     doc.build(story, onFirstPage=draw_border)
     pdf_buffer.seek(0)
+    return pdf_buffer.getvalue()
+
+
+@app.route("/generate_pdf/<int:invoice_id>")
+def generate_pdf(invoice_id):
+    conn = get_db()
+    invoice = conn.execute(
+        "SELECT * FROM invoices WHERE id=?", (invoice_id,)
+    ).fetchone()
+
+    if invoice is None:
+        conn.close()
+        # Fallback to cached file on disk if available
+        try:
+            p_dir = get_pdf_dir()
+            if p_dir:
+                p_file = os.path.join(p_dir, f"invoice_{invoice_id}.pdf")
+                if os.path.exists(p_file):
+                    is_download = request.args.get("download") == "1"
+                    return send_file(
+                        p_file,
+                        download_name=f"Invoice_{invoice_id}.pdf",
+                        as_attachment=is_download,
+                        mimetype="application/pdf",
+                    )
+        except Exception:
+            pass
+        return "Invoice not found", 404
+
+    items = conn.execute(
+        "SELECT * FROM invoice_items WHERE invoice_id=?", (invoice_id,)
+    ).fetchall()
+    conn.close()
+
+    inv_dict = to_dict(invoice)
+    items_list = [to_dict(it) for it in items]
+    pdf_bytes = build_invoice_pdf_bytes(inv_dict, items_list)
 
     # Cache to disk if directory is writable
     try:
@@ -1485,17 +1575,38 @@ def generate_pdf(invoice_id):
         if p_dir and os.access(p_dir, os.W_OK):
             p_file = os.path.join(p_dir, f"invoice_{invoice_id}.pdf")
             with open(p_file, "wb") as f:
-                f.write(pdf_buffer.getvalue())
+                f.write(pdf_bytes)
     except Exception:
         pass
 
+    inv_no = inv_dict.get("invoice_no") or invoice_id
     is_download = request.args.get("download") == "1"
     return send_file(
-        pdf_buffer,
-        download_name=f"Invoice_{invoice['invoice_no'] or invoice_id}.pdf",
+        io.BytesIO(pdf_bytes),
+        download_name=f"Invoice_{inv_no}.pdf",
         as_attachment=is_download,
         mimetype="application/pdf",
-    ) 
+    )
+
+
+@app.route("/api/render_pdf", methods=["POST"])
+def render_pdf_api():
+    """Stateless PDF generator accepting invoice and items JSON data directly."""
+    try:
+        payload = request.json or {}
+        invoice = payload.get("invoice", {})
+        items = payload.get("items", [])
+        pdf_bytes = build_invoice_pdf_bytes(invoice, items)
+        inv_no = invoice.get("invoice_no") or invoice.get("id") or "Bill"
+        is_download = request.args.get("download") == "1"
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            download_name=f"Invoice_{inv_no}.pdf",
+            as_attachment=is_download,
+            mimetype="application/pdf",
+        )
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500 
 
 
 def _print_network_info():
